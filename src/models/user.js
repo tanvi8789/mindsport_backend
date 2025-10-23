@@ -1,14 +1,8 @@
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
-//Schema
 const userSchema = new mongoose.Schema(
   {
-    userId: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
+    // --- Core Authentication Fields ---
     email: {
       type: String,
       required: true,
@@ -22,31 +16,41 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    sport: {
+    password: {
       type: String,
       required: true,
+      minlength: 6,
+    },
+
+    // --- Optional User Profile Fields ---
+    // These are not required at sign-up and can be added by the user later.
+    sport: {
+      type: String,
       trim: true,
+      default: '', // Provide a default empty string
     },
     age: {
       type: Number,
-      required: true,
       min: 1,
     },
     gender: {
       type: String,
-      enum: ["Male", "Female"], // restricts values
-      required: true,
+      // The enum is expanded to be more inclusive for the profile page.
+      enum: ["Male", "Female", "Other", "Prefer not to say"],
     },
-    password: {
-      type: String,
-      required: true,
-      minlength: 8, // you can adjust
+    height: {
+      type: Number, // Stored in cm
+    },
+    weight: {
+      type: Number, // Stored in kg
     },
   },
   { timestamps: true }
 );
 
-const User = mongoose.model("user" , userSchema);
+// We use "User" (uppercase) as the model name, which is a common convention
+// and matches the controller logic we've built.
+const User = mongoose.model("User", userSchema);
 
-export default User
+export default User;
 

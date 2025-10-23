@@ -1,16 +1,20 @@
-import dotenv from "dotenv";
-import mongoose from "mongoose"
+import mongoose from "mongoose";
 
-dotenv.config({ path: "./.env" });
+// This function handles the connection to your MongoDB Atlas database.
+const connectDB = async () => {
+  try {
+    // It uses the secret MONGO_URI from your .env file.
+    const connectionInstance = await mongoose.connect(process.env.MONGO_URI);
+    
+    // This success message is crucial for confirming the connection.
+    console.log(`SUCCESS: MongoDB Connected at ${connectionInstance.connection.host}`);
+    
+  } catch (error) {
+    // This will show a clear error if the connection fails.
+    console.error("ERROR: MongoDB Connection Failed:", error);
+    process.exit(1); // Exit the application if we can't connect to the DB
+  }
+};
 
-const DB_URL = process.env.DB_URL;
-
-//Database Connection
-mongoose
-.connect(DB_URL)
-.then(() =>{
-    console.log(`DB Connected at ${DB_URL}`)})
-.catch(() => {
-    console.log(`DB Connection error!`);});
-
-export default mongoose;
+// We export the function so it can be used in index.js
+export default connectDB;

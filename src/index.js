@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Now, we can safely import the rest of our app.
-import app from "./app.js";
+import app from "./server.js";
 import connectDB from "./db/mongo.js";
 
 // --- THIS IS THE FIX ---
@@ -26,7 +26,7 @@ connectDB(mongoURI)
   .then(() => {
     const PORT = process.env.PORT || 3000;
     app.listen(PORT,'0.0.0.0', () => {
-      console.log(`Server is running and listening on http://localhost:${PORT}`);
+      console.log(`Server is running and listening on port :${PORT}`);
     });
   })
   .catch((err) => {

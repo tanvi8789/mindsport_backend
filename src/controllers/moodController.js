@@ -40,6 +40,8 @@ export const createOrUpdateMood = async (req, res) => {
       }
     );
 
+    console.log(`SUCCESS: Mood saved for user ${userId}. Mood: ${mood}`);
+
     res.status(200).json({
       message: "Mood saved successfully",
       data: updatedMood

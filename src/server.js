@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import moodRoutes from "./routes/moodRoutes.js";
 import User from './models/user.model.js';
 import { protect } from './middleware/auth.js';
+import reminderRoutes from './routes/reminderRoutes.js';
 
 // --- 2. CONFIGURATION ---
 dotenv.config();
@@ -78,6 +79,7 @@ app.get("/api/auth/me", protect, (req, res) => {
 });
 
 app.use("/api/moods", moodRoutes);
+app.use("/api/reminders", reminderRoutes);
 
 
 // --- 3. & 6. DATABASE CONNECTION & SERVER START (THE FIX) ---

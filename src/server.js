@@ -6,29 +6,21 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import moodRoutes from "./routes/moodRoutes.js";
+import User from './models/user.model.js';
+import { protect } from './middleware/auth.js';
 
 // --- 2. CONFIGURATION ---
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MONGO_URI = process.env.MONGO_URI; // Use the correct variable name
+const MONGO_URI = process.env.MONGO_URI;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // --- 4. DATABASE BLUEPRINT (MODEL) ---
-// (Defining this before the routes is good practice)
-const userSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  name: { type: String, required: true, trim: true },
-  password: { type: String, required: true, minlength: 6 },
-  sport: { type: String, required: false, trim: true },
-  age: { type: Number, required: false },
-  gender: { type: String, enum: ["Male", "Female"], required: false },
-}, { timestamps: true });
-
-const User = mongoose.model("User", userSchema);
+// (This is correctly moved to its own file)
 
 // --- 5. API ROUTES ---
 const createToken = (userId) => {
@@ -75,13 +67,20 @@ app.post("/api/auth/login", async (req, res) => {
     }
 });
 
+// --- THIS IS THE MISSING ROUTE ---
+// ## GET CURRENT LOGGED IN USER'S DATA ##
+// We use our 'protect' middleware as a gatekeeper.
+// It will first check the token, find the user, and attach it to `req.user`.
+app.get("/api/auth/me", protect, (req, res) => {
+  // The 'protect' middleware has already done the work.
+  // We just send back the user object it found.
+  res.status(200).json(req.user);
+});
+
 app.use("/api/moods", moodRoutes);
 
 
 // --- 3. & 6. DATABASE CONNECTION & SERVER START (THE FIX) ---
-// We moved app.listen() INSIDE the .then() block.
-// The server will only start AFTER the database is connected.
-
 if (!MONGO_URI) {
   console.error("FATAL ERROR: MONGO_URI is not defined in environment variables.");
   process.exit(1);
@@ -101,4 +100,3 @@ mongoose.connect(MONGO_URI)
     console.error("FATAL ERROR: MongoDB Connection Failed:", err);
     process.exit(1); // Exit the app with a failure code
   });
-

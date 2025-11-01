@@ -1,4 +1,4 @@
-import User from "../models/user.js";
+import User from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
@@ -63,7 +63,7 @@ export const updateUserProfile = async (req, res) => {
     try {
         const userId = req.user.id;
         const updates = req.body;
-
+        
         const updatedUser = await User.findByIdAndUpdate(
             userId,
             { $set: updates },

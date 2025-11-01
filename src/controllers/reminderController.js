@@ -1,4 +1,4 @@
-import Reminder from '../models/reminder.model.js';
+import Reminder from '../models/reminderModel.js';
 import mongoose from 'mongoose';
 
 // @desc    Get all reminders for the logged-in user

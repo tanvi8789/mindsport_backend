@@ -6,9 +6,10 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import moodRoutes from "./routes/moodRoutes.js";
-import User from './models/user.model.js';
+import User from './models/userModel.js';
 import { protect } from './middleware/auth.js';
 import reminderRoutes from './routes/reminderRoutes.js';
+import { updateUserProfile } from './controllers/userController.js';
 
 // --- 2. CONFIGURATION ---
 dotenv.config();
@@ -77,6 +78,8 @@ app.get("/api/auth/me", protect, (req, res) => {
   // We just send back the user object it found.
   res.status(200).json(req.user);
 });
+
+app.put("/api/auth/me", protect, updateUserProfile);
 
 app.use("/api/moods", moodRoutes);
 app.use("/api/reminders", reminderRoutes);

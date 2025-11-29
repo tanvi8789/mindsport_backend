@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { createOrUpdateMood } from '../controllers/moodController.js';
+import { protect } from '../middleware/auth.js'; 
 
 const router = Router();
 

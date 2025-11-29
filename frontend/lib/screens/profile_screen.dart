@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../models/user_model.dart';
+import 'package:mindsport/models/user_model.dart';
 import 'package:provider/provider.dart';
 import '../services/user_provider.dart';
-import '../services/auth_service.dart'; // We use this for saving
+import '../services/auth_service.dart';
+import 'package:mindsport/main.dart'; // Import theme
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -11,44 +12,55 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final AuthService _authService = AuthService(); // Keep instance for saving
+  final AuthService _authService = AuthService();
 
   // Controllers
   late TextEditingController _nameController;
   late TextEditingController _sportController;
   late TextEditingController _ageController;
-  late TextEditingController _heightController; // Was late
-  late TextEditingController _weightController; // Was late
+  late TextEditingController _heightController;
+  late TextEditingController _weightController;
   String? _selectedGender;
 
   bool _isDirty = false;
   bool _isLoading = false;
 
+  // --- ANIMATION ---
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
   @override
   void initState() {
     super.initState();
-    // Get the initial user data from the provider
     final user = Provider.of<UserProvider>(context, listen: false).user;
 
     // Initialize all controllers
     _nameController = TextEditingController(text: user?.name ?? '');
     _sportController = TextEditingController(text: user?.sport ?? '');
     _ageController = TextEditingController(text: user?.age?.toString() ?? '');
-    // --- THIS IS THE FIX ---
-    // Uncomment these lines to initialize the controllers
     _heightController = TextEditingController(text: user?.height?.toString() ?? '');
     _weightController = TextEditingController(text: user?.weight?.toString() ?? '');
-    // --- END OF FIX ---
     _selectedGender = user?.gender;
 
-    // Add listeners AFTER initialization
+    // Add listeners
     _nameController.addListener(_onChanged);
     _sportController.addListener(_onChanged);
     _ageController.addListener(_onChanged);
     _heightController.addListener(_onChanged);
     _weightController.addListener(_onChanged);
+
+    // --- ANIMATION SETUP ---
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutQuart,
+    );
+    _animationController.forward();
   }
 
   void _onChanged() {
@@ -66,88 +78,142 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _ageController.dispose();
     _heightController.dispose();
     _weightController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
   Future<void> _saveProfile() async {
-    // Basic validation before saving
-    if (!_formKey.currentState!.validate()) {
-      return; // Don't proceed if form is invalid
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() { _isLoading = true; });
 
-    // Prepare the update data payload
     final updates = <String, dynamic>{
       'name': _nameController.text.trim(),
       'sport': _sportController.text.trim(),
       'age': int.tryParse(_ageController.text.trim()),
-      'height': int.tryParse(_heightController.text.trim()), // Now included
-      'weight': int.tryParse(_weightController.text.trim()), // Now included
+      'height': int.tryParse(_heightController.text.trim()),
+      'weight': int.tryParse(_weightController.text.trim()),
       'gender': _selectedGender,
     };
 
-    // Remove null/empty values so we only send actual changes
     updates.removeWhere((key, value) => value == null || (value is String && value.isEmpty));
 
-    // Call the AuthService to update the profile via API
     final success = await _authService.updateUserProfile(updates);
 
     if (mounted) {
-      // Refresh user data in the provider AFTER saving
       await Provider.of<UserProvider>(context, listen: false).fetchUserData();
 
       setState(() {
         _isLoading = false;
-        _isDirty = false; // Reset dirty flag after successful save
+        _isDirty = false;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(success ? "Profile saved!" : "Failed to save profile."),
-          backgroundColor: success ? const Color(0xFFD5DABA) : Colors.red,
+          backgroundColor: success ? MindSportTheme.primaryGreen : Colors.red,
         ),
       );
     }
   }
 
+  // Placeholder function for image picking
+  void _pickImage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Image picker would open here (Requires image_picker package)')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // You can optionally wrap this Scaffold with Consumer<UserProvider>
-    // if you want parts of the UI to update automatically when data changes.
+    final user = Provider.of<UserProvider>(context).user;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F0EC),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            backgroundColor: const Color(0xFFBAC0DA), // Lavender-ish
-            pinned: true,
-            expandedHeight: 150.0,
-            iconTheme: const IconThemeData(color: Colors.black54), // Darker icon for contrast
-            flexibleSpace: FlexibleSpaceBar(
-              title: const Text('My Profile', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFBAC0DA), Color(0xFFD0E7E7)], // Lavender to light turquoise
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              ),
-            ),
+      extendBodyBehindAppBar: true, // Let background show through app bar
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text('My Profile'),
+        iconTheme: const IconThemeData(color: MindSportTheme.darkText),
+      ),
+      body: Stack(
+        children: [
+          // --- 1. ABSTRACT BACKGROUND ---
+          CustomPaint(
+            painter: _BackgroundPainter(),
+            size: Size.infinite,
           ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    _buildInfoCard(
+
+          // --- 2. CONTENT ---
+          SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 100, 24, 40), // Top padding for AppBar
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  // --- PROFILE PICTURE SECTION ---
+                  _FadeInSlide(
+                    animation: _fadeAnimation,
+                    delay: 0.0,
+                    child: Center(
+                      child: Stack(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4), // Border width
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white, // Border color
+                            ),
+                            child: CircleAvatar(
+                              radius: 60,
+                              backgroundColor: MindSportTheme.softLavender,
+                              // If we had a photo URL, we'd use NetworkImage here
+                              // backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
+                              child: Text(
+                                user?.name.substring(0, 1).toUpperCase() ?? 'A',
+                                style: const TextStyle(
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: _pickImage,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: MindSportTheme.primaryGreen,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // --- PERSONAL DETAILS CARD ---
+                  _FadeInSlide(
+                    animation: _fadeAnimation,
+                    delay: 0.1,
+                    child: _buildInfoCard(
                         title: 'Personal Details',
-                        icon: Icons.person_search,
-                        color: const Color(0xFFF3CEB3), // Orange-ish
+                        icon: Icons.person_outline,
+                        color: MindSportTheme.softPeach,
                         children: [
                           _buildTextField(_nameController, 'Name'),
                           const SizedBox(height: 16),
@@ -161,17 +227,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ]
                     ),
-                    const SizedBox(height: 24),
-                    _buildInfoCard(
-                        title: 'Athletic Details',
-                        icon: Icons.fitness_center,
-                        color: const Color(0xFFDABABA), // Solkadi color
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // --- ATHLETIC DETAILS CARD ---
+                  _FadeInSlide(
+                    animation: _fadeAnimation,
+                    delay: 0.2,
+                    child: _buildInfoCard(
+                        title: 'Athletic Stats',
+                        icon: Icons.fitness_center_outlined,
+                        color: MindSportTheme.softGreen,
                         children: [
                           _buildTextField(_sportController, 'Primary Sport'),
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              // These fields are now connected
                               Expanded(child: _buildTextField(_heightController, 'Height (cm)', isNumber: true)),
                               const SizedBox(width: 16),
                               Expanded(child: _buildTextField(_weightController, 'Weight (kg)', isNumber: true)),
@@ -179,24 +251,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ]
                     ),
-                    const SizedBox(height: 30),
-                    // Show save button only if changes were made
-                    if (_isDirty)
-                      _isLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : ElevatedButton(
-                        onPressed: _saveProfile,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFD5DABA), // Sage green
-                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 40),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                          elevation: 4,
-                          shadowColor: Colors.black38,
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // --- SAVE BUTTON ---
+                  _FadeInSlide(
+                    animation: _fadeAnimation,
+                    delay: 0.3,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 300),
+                      opacity: _isDirty ? 1.0 : 0.0, // Hide if nothing changed
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _saveProfile,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: MindSportTheme.primaryGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            elevation: 4,
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text('Save Changes'),
                         ),
-                        child: const Text('Save Changes', style: TextStyle(fontSize: 18, color: Colors.black87, fontWeight: FontWeight.bold)),
-                      )
-                  ],
-                ),
+                      ),
+                    ),
+                  )
+                ],
               ),
             ),
           ),
@@ -209,34 +292,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildInfoCard({required String title, required IconData icon, required Color color, required List<Widget> children}) {
     return Card(
-      elevation: 4,
-      shadowColor: color.withOpacity(0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              colors: [color.withOpacity(0.4), Colors.white],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            )
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, color: Colors.black54),
-                  const SizedBox(width: 8),
-                  Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black54)),
-                ],
-              ),
-              const Divider(height: 24, thickness: 0.5),
-              ...children,
-            ],
-          ),
+      elevation: 0,
+      color: color.withOpacity(0.85), // Translucent theme color
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: MindSportTheme.darkText, size: 22),
+                const SizedBox(width: 12),
+                Text(
+                    title,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: MindSportTheme.darkText
+                    )
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ...children,
+          ],
         ),
       ),
     );
@@ -248,21 +328,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
       decoration: InputDecoration(
         labelText: label,
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.7),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
+        labelStyle: const TextStyle(color: Colors.black54),
+        fillColor: Colors.white.withOpacity(0.6), // Slightly transparent white input
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       validator: (value) {
-        if (label == 'Name' && (value == null || value.isEmpty)) {
-          return 'Name cannot be empty';
-        }
-        // Optional: Add validation for number fields if needed
-        if (isNumber && value != null && value.isNotEmpty && int.tryParse(value) == null) {
-          return 'Please enter a valid number';
-        }
+        if (label == 'Name' && (value == null || value.isEmpty)) return 'Required';
         return null;
       },
     );
@@ -274,27 +346,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isExpanded: true,
       hint: const Text('Gender'),
       decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.7),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide.none,
-        ),
+        labelText: 'Gender',
+        labelStyle: const TextStyle(color: Colors.black54),
+        fillColor: Colors.white.withOpacity(0.6),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       items: ["Male", "Female", "Other", "Prefer not to say"]
           .map((label) => DropdownMenuItem(
-        child: Text(label, overflow: TextOverflow.ellipsis),
         value: label,
-      ))
-          .toList(),
+        child: Text(label, overflow: TextOverflow.ellipsis),
+      )).toList(),
       onChanged: (value) {
         if (value != null) {
           setState(() {
             _selectedGender = value;
-            _onChanged(); // Mark form as dirty when gender changes
+            _onChanged();
           });
         }
       },
+    );
+  }
+}
+
+// --- Background Painter (Reused) ---
+class _BackgroundPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double blurSigma = 45.0;
+    final paint1 = Paint()..color = MindSportTheme.softPeach.withOpacity(0.5)..maskFilter = const MaskFilter.blur(BlurStyle.normal, blurSigma);
+    final paint2 = Paint()..color = MindSportTheme.softLavender.withOpacity(0.6)..maskFilter = const MaskFilter.blur(BlurStyle.normal, blurSigma);
+    final paint3 = Paint()..color = MindSportTheme.softGreen.withOpacity(0.5)..maskFilter = const MaskFilter.blur(BlurStyle.normal, blurSigma);
+
+    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.1), 150, paint1);
+    canvas.drawCircle(Offset(size.width * 0.9, size.height * 0.3), 200, paint2);
+    canvas.drawCircle(Offset(size.width * 0.2, size.height * 0.7), 180, paint3);
+  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// --- Animation Widget (Reused) ---
+class _FadeInSlide extends StatelessWidget {
+  final Animation<double> animation;
+  final double delay;
+  final Widget child;
+
+  const _FadeInSlide({required this.animation, required this.delay, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final curvedAnimation = CurvedAnimation(
+      parent: animation,
+      curve: Interval(delay, (delay + 0.5).clamp(0.0, 1.0), curve: Curves.easeOutCubic),
+    );
+    return AnimatedBuilder(
+      animation: curvedAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, (1.0 - curvedAnimation.value) * 30),
+          child: Opacity(opacity: curvedAnimation.value, child: child),
+        );
+      },
+      child: child,
     );
   }
 }

@@ -7,6 +7,10 @@ const userSchema = new mongoose.Schema({
   sport: { type: String, required: false, trim: true },
   age: { type: Number, required: false },
   gender: { type: String, enum: ["Male", "Female"], required: false },
+  wellnessGoals: { 
+    type: [String], // An array of strings
+    default: [] 
+  },
 }, { timestamps: true });
 
 // This creates the index that was failing on your *email* field

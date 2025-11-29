@@ -18,27 +18,26 @@ class _MoodHistoryScreenState extends State<MoodHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    // Fetch data when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<MoodProvider>(context, listen: false).fetchMoodHistory();
     });
   }
 
-  // Define colors for each mood
+  // --- 1. DEFINING COLORS FOR ALL 5 MOODS ---
   Color _getColorForMood(String mood) {
     switch (mood.toLowerCase()) {
-      case 'happy':
-        return MindSportTheme.primaryGreen; // Green
       case 'excited':
-        return Colors.orangeAccent;
+        return Colors.orangeAccent; // Energetic Orange
+      case 'happy':
+        return MindSportTheme.primaryGreen; // Earthy Green
       case 'neutral':
-        return Colors.grey;
+        return Colors.grey; // Calm Grey
       case 'sad':
-        return Colors.blueGrey;
+        return const Color(0xFF7986CB); // Muted Indigo/Blue
       case 'angry':
-        return Colors.redAccent;
+        return const Color(0xFFE57373); // Soft Red
       default:
-        return MindSportTheme.softLavender;
+        return MindSportTheme.softGreen;
     }
   }
 
@@ -54,106 +53,117 @@ class _MoodHistoryScreenState extends State<MoodHistoryScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          return Column(
-            children: [
-              Card(
-                margin: const EdgeInsets.all(16.0),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                elevation: 0,
-                color: Colors.white.withOpacity(0.8),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: TableCalendar(
-                    firstDay: DateTime.utc(2020, 1, 1),
-                    lastDay: DateTime.utc(2030, 12, 31),
-                    focusedDay: _focusedDay,
-                    calendarFormat: CalendarFormat.month,
-                    headerStyle: const HeaderStyle(
-                      formatButtonVisible: false,
-                      titleCentered: true,
-                    ),
+          return SingleChildScrollView( // Added scroll for smaller screens
+            child: Column(
+              children: [
+                // --- CALENDAR CARD ---
+                Card(
+                  margin: const EdgeInsets.all(16.0),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  elevation: 0,
+                  color: Colors.white.withOpacity(0.8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TableCalendar(
+                      firstDay: DateTime.utc(2020, 1, 1),
+                      lastDay: DateTime.utc(2030, 12, 31),
+                      focusedDay: _focusedDay,
+                      calendarFormat: CalendarFormat.month,
+                      headerStyle: const HeaderStyle(
+                        formatButtonVisible: false,
+                        titleCentered: true,
+                      ),
+                      calendarStyle: const CalendarStyle(
+                        todayDecoration: BoxDecoration(
+                          color: Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        todayTextStyle: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                      ),
+                      calendarBuilders: CalendarBuilders(
+                          defaultBuilder: (context, day, focusedDay) {
+                            final normalizedDay = DateTime(day.year, day.month, day.day);
+                            final mood = moodProvider.calendarMoods[normalizedDay];
 
-                    // --- THE MAGIC HAPPENS HERE ---
-                    calendarBuilders: CalendarBuilders(
-                      // Custom builder for default days
-                        defaultBuilder: (context, day, focusedDay) {
-                          // Check if we have a mood for this day
-                          // Normalize the day to remove time parts for comparison
-                          final normalizedDay = DateTime(day.year, day.month, day.day);
-                          final mood = moodProvider.calendarMoods[normalizedDay];
+                            if (mood != null) {
+                              return Container(
+                                margin: const EdgeInsets.all(6.0),
+                                decoration: BoxDecoration(
+                                  color: _getColorForMood(mood).withOpacity(0.8),
+                                  shape: BoxShape.circle,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  '${day.day}',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
+                              );
+                            }
+                            return null;
+                          },
+                          todayBuilder: (context, day, focusedDay) {
+                            final normalizedDay = DateTime(day.year, day.month, day.day);
+                            final mood = moodProvider.calendarMoods[normalizedDay];
 
-                          if (mood != null) {
-                            // If there IS a mood, return a colored circle
+                            if (mood != null) {
+                              return Container(
+                                margin: const EdgeInsets.all(6.0),
+                                decoration: BoxDecoration(
+                                    color: _getColorForMood(mood),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: MindSportTheme.darkText, width: 2)
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  '${day.day}',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
+                              );
+                            }
                             return Container(
                               margin: const EdgeInsets.all(6.0),
                               decoration: BoxDecoration(
-                                color: _getColorForMood(mood).withOpacity(0.7),
+                                color: MindSportTheme.softLavender.withOpacity(0.5),
                                 shape: BoxShape.circle,
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 '${day.day}',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                style: const TextStyle(color: MindSportTheme.darkText, fontWeight: FontWeight.bold),
                               ),
                             );
                           }
-                          // Otherwise return null (default view)
-                          return null;
-                        },
-
-                        // Also apply this to 'today' so it doesn't get overridden by default styling
-                        todayBuilder: (context, day, focusedDay) {
-                          final normalizedDay = DateTime(day.year, day.month, day.day);
-                          final mood = moodProvider.calendarMoods[normalizedDay];
-
-                          if (mood != null) {
-                            return Container(
-                              margin: const EdgeInsets.all(6.0),
-                              decoration: BoxDecoration(
-                                  color: _getColorForMood(mood), // Solid color for today
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: MindSportTheme.darkText, width: 2)
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                '${day.day}',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                              ),
-                            );
-                          }
-                          return null;
-                        }
+                      ),
+                      selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+                      onDaySelected: (selectedDay, focusedDay) {
+                        setState(() {
+                          _selectedDay = selectedDay;
+                          _focusedDay = focusedDay;
+                        });
+                      },
+                      onPageChanged: (focusedDay) => _focusedDay = focusedDay,
                     ),
-
-                    selectedDayPredicate: (day) {
-                      return isSameDay(_selectedDay, day);
-                    },
-                    onDaySelected: (selectedDay, focusedDay) {
-                      setState(() {
-                        _selectedDay = selectedDay;
-                        _focusedDay = focusedDay;
-                      });
-                    },
-                    onPageChanged: (focusedDay) {
-                      _focusedDay = focusedDay;
-                    },
                   ),
                 ),
-              ),
 
-              // Simple Legend
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _LegendItem(color: Color(0xFF6B8E23), label: 'Happy'),
-                    _LegendItem(color: Colors.orangeAccent, label: 'Excited'),
-                    _LegendItem(color: Colors.blueGrey, label: 'Sad'),
-                  ],
-                ),
-              )
-            ],
+                // --- 2. UPDATED LEGEND (ALL 5 MOODS) ---
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Wrap( // Using Wrap instead of Row to handle small screens better
+                    alignment: WrapAlignment.center,
+                    spacing: 16.0,
+                    runSpacing: 10.0,
+                    children: [
+                      _LegendItem(color: Colors.orangeAccent, label: 'Excited'),
+                      _LegendItem(color: Color(0xFF6B8E23), label: 'Happy'), // Theme Green
+                      _LegendItem(color: Colors.grey, label: 'Neutral'),
+                      _LegendItem(color: Color(0xFF7986CB), label: 'Sad'),
+                      _LegendItem(color: Color(0xFFE57373), label: 'Angry'),
+                    ],
+                  ),
+                )
+              ],
+            ),
           );
         },
       ),
@@ -169,10 +179,15 @@ class _LegendItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min, // Keep items compact
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12)),
+        Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
       ],
     );
   }

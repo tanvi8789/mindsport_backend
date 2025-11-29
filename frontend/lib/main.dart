@@ -19,6 +19,7 @@ import 'screens/chat_page.dart';
 import 'screens/community_forum.dart';
 import 'screens/profile_screen.dart';
 import 'screens/reminders_screen.dart';
+import 'package:mindsport/screens/mood_calender.dart';
 // Import placeholder screens
 import 'screens/placeholder_screen.dart';
 
@@ -125,6 +126,7 @@ class MindSportApp extends StatelessWidget {
         '/profile': (context) => const ProfileScreen(),
         '/forum': (context) => CommunityForum(),
         '/chat': (context) => ChatPage(),
+        '/history': (context) => const MoodHistoryScreen(),
       },
     );
   }

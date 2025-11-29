@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import '../services/mood_provider.dart';
-import '../services/user_provider.dart';
+import 'package:mindsport/services/mood_provider.dart';
+import 'package:mindsport/services/user_provider.dart';
 import 'package:provider/provider.dart';
-import 'sidebar.dart';
+import 'package:mindsport/screens/sidebar.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../main.dart'; // Import theme
+
+// Import the theme colors we defined in main.dart
+import 'package:mindsport/main.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,14 +23,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    // Animation setup
+    // Animation setup: Runs for 800ms
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
     );
+
+    // A nice fluid curve
     _fadeAnimation = CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeOutCubic,
+      curve: Curves.easeOutQuart,
     );
 
     // Fetch user data when the screen loads
@@ -37,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       if (userProvider.user == null) {
         userProvider.fetchUserData();
       }
-      // Start the animation
+      // Start the animation immediately
       _animationController.forward();
     });
   }
@@ -48,12 +52,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  // ... (Your _submitMood function remains the same) ...
+  // Logic to save the mood to the backend
   Future<void> _submitMood(BuildContext context) async {
     final moodProvider = Provider.of<MoodProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final moodKeyword = moodProvider.todaysMoodKeyword;
-    final userId = userProvider.user?.id; // Get the real user ID
+    final userId = userProvider.user?.id;
 
     if (moodKeyword == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -71,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     const String apiUrl = 'https://mindsport-backend.onrender.com/api/moods';
     final Map<String, dynamic> body = {
       'mood': moodKeyword,
-      'reason': '', // You can add a text field for this later
+      'reason': '',
       'userId': userId,
     };
 
@@ -79,47 +83,48 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       SnackBar(
         content: const Text('Saving mood...'),
         backgroundColor: MindSportTheme.softLavender,
+        duration: const Duration(seconds: 1),
       ),
     );
 
     try {
       final response = await http.post(
         Uri.parse(apiUrl),
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          // We need to send the auth token to the 'protect' middleware
-        },
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
         body: jsonEncode(body),
       ).timeout(const Duration(seconds: 20));
 
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
       if (response.statusCode == 200 || response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Mood saved successfully!'),
-            backgroundColor: MindSportTheme.primaryGreen, // Use theme color
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Mood saved successfully!'),
+              backgroundColor: MindSportTheme.primaryGreen,
+            ),
+          );
+        }
       } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error from server: ${response.statusCode}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error from server: ${response.statusCode}'),
+            content: Text('Connection Error: ${e.runtimeType}'),
             backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Connection Error: ${e.runtimeType}'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -129,24 +134,30 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
     return Scaffold(
       drawer: const AppSidebar(),
-      appBar: AppBar(),
+      appBar: AppBar(
+        // Transparent AppBar to show the background
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: MindSportTheme.darkText),
+      ),
+      // Use a Stack to layer the background painter behind the content
       body: Stack(
         children: [
-          // --- 1. THE ABSTRACT BACKGROUND ---
+          // --- 1. ABSTRACT BACKGROUND ---
           CustomPaint(
             painter: _BackgroundPainter(),
             size: Size.infinite,
           ),
 
-          // --- 2. THE SCROLLING CONTENT ---
+          // --- 2. SCROLLABLE CONTENT ---
           FadeTransition(
-            opacity: _fadeAnimation, // Apply the fade animation here
+            opacity: _fadeAnimation,
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- Header ---
+                  // Header
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: Text(
@@ -160,37 +171,56 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   ),
                   const SizedBox(height: 30),
 
-                  // --- Mood Card ---
-                  // We wrap each card in our new animation widget
+                  // Mood Card (Staggered Animation 1)
                   _FadeInSlide(
                     animation: _fadeAnimation,
-                    delay: 0.1, // Start after a small delay
+                    delay: 0.0,
                     child: _buildMoodCard(context, moodProvider),
                   ),
                   const SizedBox(height: 16),
 
-                  // --- Save Mood Button ---
+                  // Save Mood Button (Staggered Animation 2)
                   _FadeInSlide(
                     animation: _fadeAnimation,
-                    delay: 0.2,
+                    delay: 0.1,
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () => _submitMood(context),
                         style: ElevatedButton.styleFrom(
-                          // --- COLOR FIX ---
-                          // This now uses the primary green for a clear call to action
+                          // Strong CTA color
                           backgroundColor: MindSportTheme.primaryGreen,
                           foregroundColor: Colors.white,
-                          elevation: 2, // A very subtle shadow
+                          elevation: 4,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                         ),
-                        child: const Text('Save Today\'s Mood'),
+                        child: const Text(
+                          'Save Today\'s Mood',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Mood Calendar Button (Staggered Animation 3)
+                  _FadeInSlide(
+                    animation: _fadeAnimation,
+                    delay: 0.2,
+                    child: _buildNavigationCard(
+                      context: context,
+                      title: 'View Mood Calendar',
+                      color: MindSportTheme.softGreen,
+                      icon: Icons.calendar_month,
+                      routeName: '/history',
                     ),
                   ),
                   const SizedBox(height: 24),
 
-                  // --- Quote Card ---
+                  // Quote Card (Staggered Animation 4)
                   _FadeInSlide(
                     animation: _fadeAnimation,
                     delay: 0.3,
@@ -198,7 +228,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   ),
                   const SizedBox(height: 24),
 
-                  // --- Reminders Card ---
+                  // Reminders Card (Staggered Animation 5)
                   _FadeInSlide(
                     animation: _fadeAnimation,
                     delay: 0.4,
@@ -210,13 +240,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       routeName: '/reminders',
                     ),
                   ),
-                  const SizedBox(height: 100), // Extra space for FAB
+
+                  const SizedBox(height: 100), // Space for FAB
                 ],
               ),
             ),
           ),
         ],
       ),
+      // Floating Chat Button
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.pushNamed(context, '/chat');
@@ -227,10 +259,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // ... (_buildMoodCard, _buildQuoteCard, _buildNavigationCard methods are unchanged) ...
-  // ... They will be picked up by the animation wrappers automatically ...
+  // --- WIDGET BUILDERS ---
 
-  /// Builds the top card for mood selection
   Widget _buildMoodCard(BuildContext context, MoodProvider moodProvider) {
     final Map<String, String> moodMap = {
       '😄': 'excited',
@@ -241,10 +271,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     };
     final emojiOptions = moodMap.keys.toList();
 
-    // The CardTheme from main.dart handles the shape
     return Card(
-      // --- OPACITY CHANGE ---
-      color: MindSportTheme.softGreen.withOpacity(0.85), // Use theme color with opacity
+      // Semi-transparent background
+      color: MindSportTheme.softGreen.withOpacity(0.85),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
         child: Column(
@@ -256,8 +285,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   fontFamily: 'Nunito',
-                  color: MindSportTheme.darkText // Use theme color
-              ),
+                  color: MindSportTheme.darkText),
             ),
             const SizedBox(height: 20),
             Row(
@@ -274,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       }
                     },
                     child: Container(
-                      color: Colors.transparent, // Makes the whole area tappable
+                      color: Colors.transparent,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.all(8),
@@ -301,11 +329,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  /// Builds the middle card for the motivational quote
   Widget _buildQuoteCard() {
     return Card(
-      // --- OPACITY CHANGE ---
-      color: MindSportTheme.softPeach.withOpacity(0.85), // Use theme color with opacity
+      color: MindSportTheme.softPeach.withOpacity(0.85),
       child: const Padding(
         padding: EdgeInsets.symmetric(horizontal: 24, vertical: 36),
         child: Text(
@@ -313,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 18,
-            color: MindSportTheme.darkText, // Use theme color
+            color: MindSportTheme.darkText,
             fontFamily: 'Nunito',
             fontWeight: FontWeight.w600,
           ),
@@ -322,7 +348,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  /// Builds a generic card to navigate to another page
   Widget _buildNavigationCard({
     required BuildContext context,
     required String title,
@@ -331,13 +356,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     required String routeName,
   }) {
     return Card(
-      // --- OPACITY CHANGE ---
-      color: color.withOpacity(0.85), // Use theme color with opacity
+      color: color.withOpacity(0.85),
       child: InkWell(
         onTap: () {
           Navigator.pushNamed(context, routeName);
         },
-        borderRadius: BorderRadius.circular(20), // Matches card shape
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
           child: Row(
@@ -366,33 +390,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 }
-// --- NEW WIDGET FOR THE BACKGROUND ---
+
+// --- ANIMATION & BACKGROUND CLASSES ---
+
 class _BackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    // --- INTENSITY CHANGE ---
-    // We decrease the blur to make the colors more present
+    // Increased intensity by lowering blur slightly and increasing opacity
     const double blurSigma = 45.0;
 
-    // Soft Peach color
     final paint1 = Paint()
-    // --- INTENSITY CHANGE ---
-      ..color = MindSportTheme.softPeach.withOpacity(0.5) // Was 0.3
+      ..color = MindSportTheme.softPeach.withOpacity(0.5)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, blurSigma);
 
-    // Soft Lavender color
     final paint2 = Paint()
-    // --- INTENSITY CHANGE ---
-      ..color = MindSportTheme.softLavender.withOpacity(0.6) // Was 0.4
+      ..color = MindSportTheme.softLavender.withOpacity(0.6)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, blurSigma);
 
-    // Soft Green color
     final paint3 = Paint()
-    // --- INTENSITY CHANGE ---
-      ..color = MindSportTheme.softGreen.withOpacity(0.5) // Was 0.3
+      ..color = MindSportTheme.softGreen.withOpacity(0.5)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, blurSigma);
 
-    // Draw three large, overlapping circles to create a soft gradient
     canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.1), 150, paint1);
     canvas.drawCircle(Offset(size.width * 0.9, size.height * 0.3), 200, paint2);
     canvas.drawCircle(Offset(size.width * 0.2, size.height * 0.7), 180, paint3);
@@ -400,15 +418,13 @@ class _BackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false; // This background never needs to change
+    return false;
   }
 }
 
-// --- NEW WIDGET FOR ANIMATION ---
-// This simple widget will fade in and slide up its child
 class _FadeInSlide extends StatelessWidget {
   final Animation<double> animation;
-  final double delay; // A value between 0.0 and 1.0
+  final double delay;
   final Widget child;
 
   const _FadeInSlide({
@@ -419,19 +435,21 @@ class _FadeInSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // We create a new "curved" animation that only runs
-    // for a part of the main animation's duration
+    // Calculates the specific interval for this widget's animation
     final curvedAnimation = CurvedAnimation(
       parent: animation,
-      // This curve makes it start after the delay, and finish quickly
-      curve: Interval(delay, (delay + 0.5).clamp(0.0, 1.0), curve: Curves.easeOutCubic),
+      curve: Interval(
+          delay,
+          (delay + 0.5).clamp(0.0, 1.0),
+          curve: Curves.easeOutCubic
+      ),
     );
 
     return AnimatedBuilder(
       animation: curvedAnimation,
       builder: (context, child) {
         return Transform.translate(
-          // Slide up from 30 pixels below
+          // Slide up from 30px down
           offset: Offset(0, (1.0 - curvedAnimation.value) * 30),
           child: Opacity(
             opacity: curvedAnimation.value,
@@ -443,4 +461,3 @@ class _FadeInSlide extends StatelessWidget {
     );
   }
 }
-

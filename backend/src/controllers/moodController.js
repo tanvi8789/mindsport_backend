@@ -53,3 +53,21 @@ export const createOrUpdateMood = async (req, res) => {
     res.status(500).json({ message: "Server error while saving mood", error: error.message });
   }
 };
+
+
+export const getMoodHistory = async (req, res) => {
+  try {
+    // req.user.id comes from the 'protect' middleware
+    const userId = req.user.id; 
+
+    // Fetch all moods for this user, sorted by date (newest first)
+    const moods = await Mood.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .select('mood reason createdAt'); // We only need these fields
+
+    res.status(200).json(moods);
+  } catch (error) {
+    console.error("Error fetching mood history:", error);
+    res.status(500).json({ message: "Server error fetching moods" });
+  }
+};

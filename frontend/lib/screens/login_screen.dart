@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart'; // Make sure this path is correct
+import '../services/auth_provider.dart';
+import '../services/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,9 +14,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final AuthService _authService = AuthService();
-  bool _isLoading = false;
-  bool _isPasswordVisible = false;
+
+  // --- FIX: We no longer need these ---
+  // final AuthService _authService = AuthService(); // We will use AuthProvider
+  // bool _isLoading = false; // AuthProvider will handle this
+
+  bool _isPasswordVisible = false; // We can keep this if you add a toggle
 
   @override
   void dispose() {
@@ -23,149 +28,154 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // --- THIS IS THE CORRECTED _login FUNCTION ---
   Future<void> _login() async {
     // Check if the form fields are valid
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      // Call the auth service to log the user in
-      final result = await _authService.login(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
-
-      // Check if the widget is still mounted before updating state
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      // Check the result from the auth service
-      if (result['success']) {
-        // On success, navigate to the home screen
-        Navigator.of(context).pushReplacementNamed('/home');
-      } else {
-        // On failure, show an error dialog
-        final message = result['message'] as String? ?? 'An unknown error occurred.';
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Login Error'),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Okay'),
-              ),
-            ],
-          ),
-        );
-      }
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
+    // Hide keyboard
+    FocusScope.of(context).unfocus();
+
+    // Get the providers (listen: false because we are in a function)
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Call the login method from the AuthProvider
+    final success = await authProvider.login(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+      userProvider,
+    );
+
+    // Check if the widget is still mounted before showing an error
+    if (!mounted) return;
+
+    // If login failed, show the error message from the provider
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+
+    // --- WE DO NOT NAVIGATE HERE ---
+    // The AuthWrapper in main.dart will automatically handle
+    // navigation when the authProvider.status changes.
+    // We can remove the old logic:
+    // if (result['success']) { ... }
   }
+  // --- END OF CORRECTED FUNCTION ---
 
   @override
   Widget build(BuildContext context) {
+    // Get the AuthProvider to listen for state changes
+    final authProvider = Provider.of<AuthProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F0EC),
+      // The background color is now set from the theme in main.dart
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'Welcome Back',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF4A4A4A),
-                    ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 60),
+                const Icon(
+                  Icons.spa, // Example icon (Spa/Wellness)
+                  size: 80,
+                  color: Color(0xFF6B8E23), // Using the new primary green
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Welcome Back',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF333333),
                   ),
-                  const SizedBox(height: 48),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || !value.contains('@')) {
-                        return 'Please enter a valid email';
-                      }
-                      return null;
-                    },
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Log in to your account',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.black54,
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: !_isPasswordVisible,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _isPasswordVisible
-                              ? Icons.visibility
-                              : Icons.visibility_off,
+                ),
+                const SizedBox(height: 40),
+
+                // --- EMAIL TEXT FIELD ---
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    hintText: 'Email',
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) =>
+                  (value == null || !value.contains('@'))
+                      ? 'Please enter a valid email'
+                      : null,
+                ),
+                const SizedBox(height: 20),
+
+                // --- PASSWORD TEXT FIELD ---
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: const InputDecoration(
+                    hintText: 'Password',
+                    prefixIcon: Icon(Icons.lock_outline),
+                    // You could add a visibility toggle here:
+                    // suffixIcon: IconButton(
+                    //   icon: Icon(_isPasswordVisible ? Icons.visibility_off : Icons.visibility),
+                    //   onPressed: () => setState(() { _isPasswordVisible = !_isPasswordVisible; }),
+                    // ),
+                  ),
+                  obscureText: !_isPasswordVisible, // Use the state variable
+                  validator: (value) =>
+                  (value == null || value.length < 6)
+                      ? 'Password must be at least 6 characters'
+                      : null,
+                ),
+                const SizedBox(height: 30),
+
+                // --- LOGIN BUTTON ---
+                // This correctly listens to the provider's status
+                authProvider.status == AuthStatus.authenticating
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                  onPressed: _login, // This now calls our corrected _login function
+                  child: const Text('Login'),
+                ),
+
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Don't have an account?"),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/register');
+                      },
+                      child: const Text(
+                        'Sign Up',
+                        style: TextStyle(
+                          color: Color(0xFF6B8E23),
+                          fontWeight: FontWeight.bold,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _isPasswordVisible = !_isPasswordVisible;
-                          });
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                    onPressed: _login,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD5DABA),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Login',
-                      style: TextStyle(fontSize: 18, color: Colors.black87),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pushReplacementNamed('/signup');
-                    },
-                    child: const Text(
-                      'Don\'t have an account? Sign Up',
-                      style: TextStyle(color: Colors.black54),
-                    ),
-                  )
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),

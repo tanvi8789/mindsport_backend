@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
+import '../services/auth_provider.dart';
+import '../services/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -13,122 +15,167 @@ class _SignupScreenState extends State<SignupScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  final AuthService _authService = AuthService();
-  bool _isLoading = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _signUp() async {
-    if (_formKey.currentState!.validate()) {
-      if (_passwordController.text != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Passwords do not match!")),
-        );
-        return;
-      }
+  // --- THIS IS THE REGISTER FUNCTION ---
+  // It matches the button's 'onPressed: _register'
+  Future<void> _register() async {
+    // Hide keyboard
+    FocusScope.of(context).unfocus();
 
-      setState(() { _isLoading = true; });
+    if (!_formKey.currentState!.validate()) {
+      return; // Form is not valid
+    }
 
-      final result = await _authService.register(
-        _nameController.text.trim(),
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // We call the AuthProvider, not the AuthService directly
+    final success = await authProvider.register(
+      _nameController.text.trim(),
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+      userProvider,
+    );
+
+    if (mounted && !success) {
+      // Show error message if registration failed
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.errorMessage),
+          backgroundColor: Colors.red,
+        ),
       );
-
-      // Check if the widget is still in the tree before updating state
-      if (!mounted) return;
-
-      setState(() { _isLoading = false; });
-
-      if (result['success']) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      } else {
-        // Safely get the error message, provide a default if it's null
-        final message = result['message'] as String? ?? 'An unknown error occurred.';
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Registration Error'),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Okay'),
-              ),
-            ],
-          ),
-        );
-      }
+    }
+    // If successful, the AuthWrapper in main.dart will automatically
+    // navigate to HomeScreen. We also pop this screen.
+    if (success && mounted) {
+      Navigator.of(context).pop();
     }
   }
+  // --- END OF REGISTER FUNCTION ---
 
-  // ... The rest of your build method for the UI ...
   @override
   Widget build(BuildContext context) {
-    // Paste your existing build method here.
-    // The UI doesn't need to change, only the _signUp logic.
+    final authProvider = Provider.of<AuthProvider>(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F0EC),
+      // Background color is from the theme
+      appBar: AppBar(
+        // The theme makes this transparent with a black back arrow
+        elevation: 0,
+      ),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text( 'Create Account', textAlign: TextAlign.center, style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF4A4A4A),),),
-                  const SizedBox(height: 48),
-                  TextFormField(
-                    controller: _nameController,
-                    decoration: InputDecoration( labelText: 'Name', prefixIcon: const Icon(Icons.person_outline), border: OutlineInputBorder( borderRadius: BorderRadius.circular(12),),),
-                    validator: (value) => value == null || value.isEmpty ? 'Please enter your name' : null,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 20),
+                const Text(
+                  'Create Account',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF333333),
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration( labelText: 'Email', prefixIcon: const Icon(Icons.email_outlined), border: OutlineInputBorder( borderRadius: BorderRadius.circular(12),),),
-                    validator: (value) => value == null || !value.contains('@') ? 'Please enter a valid email' : null,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Start your wellness journey',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.black54,
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: InputDecoration( labelText: 'Password', prefixIcon: const Icon(Icons.lock_outline), border: OutlineInputBorder( borderRadius: BorderRadius.circular(12),),),
-                    validator: (value) => value == null || value.length < 6 ? 'Password must be at least 6 characters' : null,
+                ),
+                const SizedBox(height: 40),
+
+                // --- NAME TEXT FIELD ---
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    hintText: 'Name',
+                    prefixIcon: Icon(Icons.person_outline),
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _confirmPasswordController,
-                    obscureText: true,
-                    decoration: InputDecoration( labelText: 'Confirm Password', prefixIcon: const Icon(Icons.lock_outline), border: OutlineInputBorder( borderRadius: BorderRadius.circular(12),),),
-                    validator: (value) => value == null || value.isEmpty ? 'Please confirm your password' : null,
+                  keyboardType: TextInputType.name,
+                  validator: (value) => (value == null || value.isEmpty)
+                      ? 'Please enter your name'
+                      : null,
+                ),
+                const SizedBox(height: 20),
+
+                // --- EMAIL TEXT FIELD ---
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    hintText: 'Email',
+                    prefixIcon: Icon(Icons.email_outlined),
                   ),
-                  const SizedBox(height: 32),
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                    onPressed: _signUp,
-                    style: ElevatedButton.styleFrom( backgroundColor: const Color(0xFFD5DABA), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder( borderRadius: BorderRadius.circular(12),),),
-                    child: const Text( 'Sign Up', style: TextStyle(fontSize: 18, color: Colors.black87),),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) =>
+                  (value == null || !value.contains('@'))
+                      ? 'Please enter a valid email'
+                      : null,
+                ),
+                const SizedBox(height: 20),
+
+                // --- PASSWORD TEXT FIELD ---
+                TextFormField(
+                  controller: _passwordController,
+                  decoration: const InputDecoration(
+                    hintText: 'Password',
+                    prefixIcon: Icon(Icons.lock_outline),
                   ),
-                  const SizedBox(height: 24),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pushReplacementNamed('/login'),
-                    child: const Text( 'Already have an account? Login', style: TextStyle(color: Colors.black54),),
-                  )
-                ],
-              ),
+                  obscureText: true,
+                  validator: (value) =>
+                  (value == null || value.length < 6)
+                      ? 'Password must be at least 6 characters'
+                      : null,
+                ),
+                const SizedBox(height: 30),
+
+                // --- SIGNUP BUTTON ---
+                // This 'onPressed' now correctly calls the '_register' function
+                authProvider.status == AuthStatus.authenticating
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                  onPressed: _register, // This now matches
+                  child: const Text('Sign Up'),
+                ),
+
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Already have an account?"),
+                    TextButton(
+                      onPressed: () {
+                        // Pop this screen to go back to the login screen
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text(
+                        'Log In',
+                        style: TextStyle(
+                          color: Color(0xFF6B8E23), // Theme green
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),

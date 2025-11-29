@@ -3,8 +3,7 @@ import '../models/reminder_model.dart';
 import '../services/reminder_provider.dart';
 import 'add_reminder_screen.dart';
 import 'package:provider/provider.dart';
-
-// Note: I removed the UserProvider import, as we don't need it here anymore
+import '../main.dart'; // Import theme
 
 class RemindersScreen extends StatefulWidget {
   const RemindersScreen({super.key});
@@ -13,36 +12,58 @@ class RemindersScreen extends StatefulWidget {
   State<RemindersScreen> createState() => _RemindersScreenState();
 }
 
-class _RemindersScreenState extends State<RemindersScreen> {
+// --- ANIMATION ---
+// Add the SingleTickerProviderStateMixin
+class _RemindersScreenState extends State<RemindersScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
   @override
   void initState() {
     super.initState();
-    // Fetch reminders when the screen loads
+    // --- ANIMATION ---
+    // Setup the animation controller
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // --- THIS IS THE FIX ---
-      // We just call fetchReminders(). The provider and service
-      // already know how to get the user from the auth token.
+      // Fetch reminders when the screen loads
       Provider.of<ReminderProvider>(context, listen: false).fetchReminders();
-      // --- END OF FIX ---
+      // --- ANIMATION ---
+      // Start the animation
+      _animationController.forward();
     });
   }
 
-  // Helper to get an icon based on the title
+  // --- ANIMATION ---
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  // Helper to get an icon based on the title, like in your design
   IconData _getIconForTitle(String title) {
     title = title.toLowerCase();
     if (title.contains('mindfulness')) {
-      return Icons.self_improvement;
+      return Icons.self_improvement; // Matches your "meditation" icon
     }
     if (title.contains('visualization')) {
-      return Icons.visibility;
+      return Icons.visibility; // Matches your "eye" icon
     }
     if (title.contains('journal')) {
-      return Icons.book_outlined;
+      return Icons.book_outlined; // Matches your "journal" icon
     }
-    return Icons.alarm;
+    return Icons.alarm; // Default
   }
 
-  // Helper to format "HH:mm" time
+  // Helper to format "HH:mm" time to "h:mm AM/PM"
   String _formatTime(String time) {
     try {
       final a = TimeOfDay(
@@ -58,70 +79,92 @@ class _RemindersScreenState extends State<RemindersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // The background color is set in main.dart
       appBar: AppBar(
         title: const Text(
           'Reminders',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
+          // The theme in main.dart will style this
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        // The theme in main.dart makes this transparent
       ),
-      body: Consumer<ReminderProvider>(
-        builder: (context, provider, child) {
-          if (provider.isLoading && provider.reminders.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Stack(
+        children: [
+          // --- 1. THE ABSTRACT BACKGROUND ---
+          CustomPaint(
+            painter: _BackgroundPainter(),
+            size: Size.infinite,
+          ),
 
-          if (provider.reminders.isEmpty) {
-            return const Center(
-              child: Text(
-                'No reminders scheduled.\nTap the + button to add one.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, color: Colors.grey),
-              ),
-            );
-          }
+          // --- 2. THE SCROLLING CONTENT ---
+          Consumer<ReminderProvider>(
+            builder: (context, provider, child) {
+              if (provider.isLoading && provider.reminders.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          return ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              const Text(
-                'Scheduled',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black54,
+              if (provider.reminders.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'No reminders scheduled.\nTap the + button to add one.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  ),
+                );
+              }
+
+              // --- ANIMATION ---
+              // Wrap the ListView in the FadeTransition
+              return FadeTransition(
+                opacity: _fadeAnimation,
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: provider.reminders.length + 1, // +1 for the header
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      // --- Header ---
+                      return const Padding(
+                        padding: EdgeInsets.only(left: 8.0, bottom: 10.0),
+                        child: Text(
+                          'Scheduled',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final reminder = provider.reminders[index - 1];
+                    // --- ANIMATION ---
+                    // Wrap each card in the slide animation
+                    return _FadeInSlide(
+                      animation: _fadeAnimation,
+                      delay: (index * 0.1).clamp(0.0, 1.0), // Stagger the cards
+                      child: _buildReminderCard(context, provider, reminder),
+                    );
+                  },
                 ),
-              ),
-              const SizedBox(height: 10),
-              ...provider.reminders.map((reminder) {
-                return _buildReminderCard(context, provider, reminder);
-              }),
-            ],
-          );
-        },
+              );
+            },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
+          // Navigate to the new "Add Reminder" screen
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const AddReminderScreen()),
           );
         },
-        backgroundColor: const Color(0xFFC8E6C9),
-        child: const Icon(Icons.add, color: Colors.black),
+        backgroundColor: MindSportTheme.primaryGreen, // Use theme color
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 
+  /// Builds the interactive card for a single reminder
   Widget _buildReminderCard(
       BuildContext context,
       ReminderProvider provider,
@@ -131,8 +174,9 @@ class _RemindersScreenState extends State<RemindersScreen> {
     final bool isCompleted = reminder.isCompletedToday;
 
     return Card(
-      color: isActive ? const Color(0xFFF3E5F5) : Colors.grey.shade200,
-      elevation: 0,
+      // --- THEME FIX ---
+      // Use the theme color with opacity
+      color: isActive ? MindSportTheme.softLavender.withOpacity(0.85) : Colors.grey.shade200.withOpacity(0.85),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       margin: const EdgeInsets.only(bottom: 15),
       child: Padding(
@@ -169,6 +213,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 ],
               ),
             ),
+            // This is the "Check-off" box
             Checkbox(
               value: isCompleted,
               onChanged: (isActive && !isCompleted)
@@ -177,15 +222,16 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   provider.markAsCompleted(reminder);
                 }
               }
-                  : null,
+                  : null, // Disabled if not active or already completed
               activeColor: Colors.deepPurple,
             ),
+            // This is the "On/Off" toggle from your design
             Switch(
               value: isActive,
               onChanged: (bool value) {
                 provider.toggleReminderActive(reminder);
               },
-              activeColor: Colors.deepPurple.shade300,
+              activeColor: Colors.white,
             ),
           ],
         ),
@@ -193,4 +239,73 @@ class _RemindersScreenState extends State<RemindersScreen> {
     );
   }
 }
+
+// --- We copy the helper classes from home_screen.dart ---
+
+// --- WIDGET FOR THE BACKGROUND ---
+class _BackgroundPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double blurSigma = 45.0;
+
+    final paint1 = Paint()
+      ..color = MindSportTheme.softPeach.withOpacity(0.5)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, blurSigma);
+
+    final paint2 = Paint()
+      ..color = MindSportTheme.softLavender.withOpacity(0.6)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, blurSigma);
+
+    final paint3 = Paint()
+      ..color = MindSportTheme.softGreen.withOpacity(0.5)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, blurSigma);
+
+    canvas.drawCircle(Offset(size.width * 0.1, size.height * 0.1), 150, paint1);
+    canvas.drawCircle(Offset(size.width * 0.9, size.height * 0.3), 200, paint2);
+    canvas.drawCircle(Offset(size.width * 0.2, size.height * 0.7), 180, paint3);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
+  }
+}
+
+// --- WIDGET FOR ANIMATION ---
+class _FadeInSlide extends StatelessWidget {
+  final Animation<double> animation;
+  final double delay;
+  final Widget child;
+
+  const _FadeInSlide({
+    required this.animation,
+    required this.delay,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final curvedAnimation = CurvedAnimation(
+      parent: animation,
+      curve: Interval(delay, (delay + 0.5).clamp(0.0, 1.0), curve: Curves.easeOutCubic),
+    );
+
+    return AnimatedBuilder(
+      animation: curvedAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, (1.0 - curvedAnimation.value) * 30),
+          child: Opacity(
+            opacity: curvedAnimation.value,
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
+// --- PLACEHOLDER CLASS REMOVED ---
+// The old placeholder 'AddReminderScreen' class is now gone.
 

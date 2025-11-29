@@ -5,6 +5,7 @@ import 'services/user_provider.dart';
 import 'services/mood_provider.dart';
 import 'services/reminder_provider.dart';
 import 'services/auth_provider.dart';
+import 'services/chat_provider.dart';
 
 //import 'services/reminder_service.dart';
 //import 'services/auth_service.dart';
@@ -21,6 +22,15 @@ import 'screens/reminders_screen.dart';
 // Import placeholder screens
 import 'screens/placeholder_screen.dart';
 
+class MindSportTheme {
+  static const Color primaryBackground = Color(0xFFF2F0EC); // Your existing warm beige
+  static const Color darkText = Color(0xFF252525); // Your existing dark text
+  static const Color primaryGreen = Color(0x8B466C3F); // A deep, earthy olive/sage
+  static const Color softGreen = Color(0x7C9C7A62); // Your existing mood card color
+  static const Color softPeach = Color(0xFFF3CEB3); // From your quote card
+  static const Color softLavender = Color(0xFF807EB6); // From your calendar card
+}
+
 void main() {
   runApp(
     MultiProvider(
@@ -29,6 +39,7 @@ void main() {
         ChangeNotifierProvider(create: (context) => UserProvider()),
         ChangeNotifierProvider(create: (context) => MoodProvider()),
         ChangeNotifierProvider(create: (context) => ReminderProvider()),
+        ChangeNotifierProvider(create: (context) => ChatProvider()),
       ],
       child: const MindSportApp(),
     ),
@@ -45,7 +56,63 @@ class MindSportApp extends StatelessWidget {
       title: 'MindSport App',
       theme: ThemeData(
         fontFamily: 'Nunito',
-        scaffoldBackgroundColor: const Color(0xFFF2F0EC),
+        scaffoldBackgroundColor: MindSportTheme.primaryBackground,
+        primaryColor: MindSportTheme.primaryGreen,
+
+        // --- App Bar Theme ---
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent, // Make all app bars transparent
+          elevation: 0,
+          centerTitle: true,
+          iconTheme: IconThemeData(color: MindSportTheme.darkText), // Black icons
+          titleTextStyle: TextStyle(
+            color: MindSportTheme.darkText,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Nunito',
+          ),
+        ),
+
+        // --- Button Theme ---
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: MindSportTheme.primaryGreen, // Earthy green buttons
+            foregroundColor: Colors.white, // White text
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30), // Rounded buttons
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+            textStyle: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Nunito',
+            ),
+          ),
+        ),
+
+        // --- Text Field Theme ---
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.8),
+          hintStyle: const TextStyle(color: Colors.black38),
+          // This creates the "soft, no underline" look
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none, // No border
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: MindSportTheme.primaryGreen, width: 2),
+          ),
+        ),
+
+        // --- Card Theme ---
+        cardTheme: CardThemeData (
+          elevation: 0, // No shadow for a flatter, softer look
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
       ),
       home: const AuthWrapper(),
       // --- THIS IS THE UPDATED ROUTES MAP ---

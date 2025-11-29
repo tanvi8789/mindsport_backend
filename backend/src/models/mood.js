@@ -24,6 +24,21 @@ const moodSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: ''
+  },
+
+  sleep: {
+    type: Number,
+    min: 1,
+    max: 10,
+    required: false, // Optional for now to prevent breaking old data
+    default: 5
+  },
+  physical: {
+    type: Number,
+    min: 1,
+    max: 10,
+    required: false,
+    default: 5
   }
 
   // --- CHANGE #3: Removed the explicit 'date' field ---

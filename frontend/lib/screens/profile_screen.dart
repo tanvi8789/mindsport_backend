@@ -24,10 +24,18 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   late TextEditingController _weightController;
   String? _selectedGender;
 
+  // Wellness Focus State
+  final List<String> _wellnessOptions = [
+    'Anxiety Relief', 'Better Sleep', 'Focus',
+    'Confidence', 'Injury Rehab', 'Burnout Recovery',
+    'Motivation', 'Pre-Game Prep'
+  ];
+  List<String> _selectedGoals = [];
+
   bool _isDirty = false;
   bool _isLoading = false;
 
-  // --- ANIMATION ---
+  // Animation
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -36,7 +44,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     super.initState();
     final user = Provider.of<UserProvider>(context, listen: false).user;
 
-    // Initialize all controllers
+    // Initialize all controllers with existing data
     _nameController = TextEditingController(text: user?.name ?? '');
     _sportController = TextEditingController(text: user?.sport ?? '');
     _ageController = TextEditingController(text: user?.age?.toString() ?? '');
@@ -44,14 +52,17 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     _weightController = TextEditingController(text: user?.weight?.toString() ?? '');
     _selectedGender = user?.gender;
 
-    // Add listeners
+    // Initialize selected goals
+    _selectedGoals = List.from(user?.wellnessGoals ?? []);
+
+    // Add listeners to track changes
     _nameController.addListener(_onChanged);
     _sportController.addListener(_onChanged);
     _ageController.addListener(_onChanged);
     _heightController.addListener(_onChanged);
     _weightController.addListener(_onChanged);
 
-    // --- ANIMATION SETUP ---
+    // Animation Setup
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -94,13 +105,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       'height': int.tryParse(_heightController.text.trim()),
       'weight': int.tryParse(_weightController.text.trim()),
       'gender': _selectedGender,
+      'wellnessGoals': _selectedGoals,
     };
 
+    // Clean up empty values
     updates.removeWhere((key, value) => value == null || (value is String && value.isEmpty));
 
     final success = await _authService.updateUserProfile(updates);
 
     if (mounted) {
+      // Refresh user data in the provider
       await Provider.of<UserProvider>(context, listen: false).fetchUserData();
 
       setState(() {
@@ -117,10 +131,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
-  // Placeholder function for image picking
   void _pickImage() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Image picker would open here (Requires image_picker package)')),
+      const SnackBar(content: Text('Image picker would open here')),
     );
   }
 
@@ -129,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     final user = Provider.of<UserProvider>(context).user;
 
     return Scaffold(
-      extendBodyBehindAppBar: true, // Let background show through app bar
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -146,12 +159,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
           // --- 2. CONTENT ---
           SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 100, 24, 40), // Top padding for AppBar
+            padding: const EdgeInsets.fromLTRB(24, 100, 24, 40),
             child: Form(
               key: _formKey,
               child: Column(
                 children: [
-                  // --- PROFILE PICTURE SECTION ---
+                  // --- PROFILE PICTURE ---
                   _FadeInSlide(
                     animation: _fadeAnimation,
                     delay: 0.0,
@@ -159,16 +172,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       child: Stack(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(4), // Border width
+                            padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.white, // Border color
+                              color: Colors.white,
                             ),
                             child: CircleAvatar(
                               radius: 60,
                               backgroundColor: MindSportTheme.softLavender,
-                              // If we had a photo URL, we'd use NetworkImage here
-                              // backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
                               child: Text(
                                 user?.name.substring(0, 1).toUpperCase() ?? 'A',
                                 style: const TextStyle(
@@ -206,7 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
                   const SizedBox(height: 30),
 
-                  // --- PERSONAL DETAILS CARD ---
+                  // --- PERSONAL DETAILS ---
                   _FadeInSlide(
                     animation: _fadeAnimation,
                     delay: 0.1,
@@ -231,7 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
                   const SizedBox(height: 20),
 
-                  // --- ATHLETIC DETAILS CARD ---
+                  // --- ATHLETIC STATS ---
                   _FadeInSlide(
                     animation: _fadeAnimation,
                     delay: 0.2,
@@ -253,6 +264,60 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     ),
                   ),
 
+                  const SizedBox(height: 20),
+
+                  // --- WELLNESS FOCUS ---
+                  _FadeInSlide(
+                    animation: _fadeAnimation,
+                    delay: 0.25,
+                    child: _buildInfoCard(
+                      title: 'Wellness Focus',
+                      icon: Icons.psychology,
+                      color: MindSportTheme.softLavender,
+                      children: [
+                        const Text(
+                          "Select areas to focus on:",
+                          style: TextStyle(fontSize: 14, color: Colors.black54),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8.0,
+                          runSpacing: 4.0,
+                          children: _wellnessOptions.map((goal) {
+                            final isSelected = _selectedGoals.contains(goal);
+                            return FilterChip(
+                              label: Text(goal),
+                              selected: isSelected,
+                              onSelected: (bool selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _selectedGoals.add(goal);
+                                  } else {
+                                    _selectedGoals.remove(goal);
+                                  }
+                                  _onChanged();
+                                });
+                              },
+                              backgroundColor: Colors.white.withOpacity(0.6),
+                              selectedColor: MindSportTheme.primaryGreen.withOpacity(0.3),
+                              labelStyle: TextStyle(
+                                color: isSelected ? MindSportTheme.darkText : Colors.black54,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                              checkmarkColor: MindSportTheme.primaryGreen,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                side: BorderSide(
+                                  color: isSelected ? MindSportTheme.primaryGreen : Colors.transparent,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   const SizedBox(height: 30),
 
                   // --- SAVE BUTTON ---
@@ -261,7 +326,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     delay: 0.3,
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 300),
-                      opacity: _isDirty ? 1.0 : 0.0, // Hide if nothing changed
+                      opacity: _isDirty ? 1.0 : 0.0,
                       child: SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -293,7 +358,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   Widget _buildInfoCard({required String title, required IconData icon, required Color color, required List<Widget> children}) {
     return Card(
       elevation: 0,
-      color: color.withOpacity(0.85), // Translucent theme color
+      color: color.withOpacity(0.85),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -329,7 +394,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.black54),
-        fillColor: Colors.white.withOpacity(0.6), // Slightly transparent white input
+        fillColor: Colors.white.withOpacity(0.6),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
@@ -369,7 +434,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 }
 
-// --- Background Painter (Reused) ---
+// --- Background Painter ---
 class _BackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -386,7 +451,7 @@ class _BackgroundPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// --- Animation Widget (Reused) ---
+// --- Animation Widget ---
 class _FadeInSlide extends StatelessWidget {
   final Animation<double> animation;
   final double delay;

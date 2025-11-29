@@ -1,38 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+// Services & Providers
 import 'services/user_provider.dart';
 import 'services/mood_provider.dart';
 import 'services/reminder_provider.dart';
 import 'services/auth_provider.dart';
 import 'services/chat_provider.dart';
+import 'services/notification_service.dart';
 
-//import 'services/reminder_service.dart';
-//import 'services/auth_service.dart';
-
-// Import all screen files
+// Screens
 import 'screens/home_screen.dart';
-// Note: You don't need to import auth_service.dart here, it's used by your providers
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/chat_page.dart';
 import 'screens/community_forum.dart';
 import 'screens/profile_screen.dart';
 import 'screens/reminders_screen.dart';
-import 'package:mindsport/screens/mood_calender.dart';
-// Import placeholder screens
-import 'screens/placeholder_screen.dart';
+import 'screens/mood_calender.dart';
 
+// --- THEME DEFINITION ---
 class MindSportTheme {
-  static const Color primaryBackground = Color(0xFFF2F0EC); // Your existing warm beige
-  static const Color darkText = Color(0xFF252525); // Your existing dark text
-  static const Color primaryGreen = Color(0x8B466C3F); // A deep, earthy olive/sage
-  static const Color softGreen = Color(0x7C9C7A62); // Your existing mood card color
-  static const Color softPeach = Color(0xFFF3CEB3); // From your quote card
-  static const Color softLavender = Color(0xFF807EB6); // From your calendar card
+  static const Color primaryBackground = Color(0xFFF2F0EC); // Warm beige
+  static const Color darkText = Color(0xFF333333); // Sharp dark text
+  static const Color primaryGreen = Color(0xFF6B8E23); // Earthy olive/sage (Opaque)
+  static const Color softGreen = Color(0xFFD5DABA); // Soft pastel green
+  static const Color softPeach = Color(0xFFF3CEB3); // Soft pastel peach
+  static const Color softLavender = Color(0xFFBAC0DA); // Soft pastel lavender
 }
 
-void main() {
+// --- MAIN ENTRY POINT ---
+void main() async {
+  // 1. Ensure Flutter bindings are initialized (Required for async main)
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 2. Initialize the Notification Service
+  await NotificationService().init();
+
   runApp(
     MultiProvider(
       providers: [
@@ -62,10 +66,10 @@ class MindSportApp extends StatelessWidget {
 
         // --- App Bar Theme ---
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent, // Make all app bars transparent
+          backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
-          iconTheme: IconThemeData(color: MindSportTheme.darkText), // Black icons
+          iconTheme: IconThemeData(color: MindSportTheme.darkText),
           titleTextStyle: TextStyle(
             color: MindSportTheme.darkText,
             fontSize: 22,
@@ -77,10 +81,10 @@ class MindSportApp extends StatelessWidget {
         // --- Button Theme ---
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: MindSportTheme.primaryGreen, // Earthy green buttons
-            foregroundColor: Colors.white, // White text
+            backgroundColor: MindSportTheme.primaryGreen,
+            foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30), // Rounded buttons
+              borderRadius: BorderRadius.circular(30),
             ),
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
             textStyle: const TextStyle(
@@ -96,10 +100,9 @@ class MindSportApp extends StatelessWidget {
           filled: true,
           fillColor: Colors.white.withOpacity(0.8),
           hintStyle: const TextStyle(color: Colors.black38),
-          // This creates the "soft, no underline" look
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none, // No border
+            borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -108,24 +111,26 @@ class MindSportApp extends StatelessWidget {
         ),
 
         // --- Card Theme ---
-        cardTheme: CardThemeData (
-          elevation: 0, // No shadow for a flatter, softer look
+        cardTheme: CardThemeData(
+          elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
         ),
       ),
+
+      // Start with the AuthWrapper to decide home/login
       home: const AuthWrapper(),
-      // --- THIS IS THE UPDATED ROUTES MAP ---
+
+      // --- ROUTES ---
       routes: {
         '/home': (context) => const HomeScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const SignupScreen(),
         '/reminders': (context) => const RemindersScreen(),
-        // --- THESE ARE THE NEW LINES ---
         '/profile': (context) => const ProfileScreen(),
         '/forum': (context) => CommunityForum(),
-        '/chat': (context) => ChatPage(),
+        '/chat': (context) => const ChatPage(),
         '/history': (context) => const MoodHistoryScreen(),
       },
     );
@@ -133,27 +138,22 @@ class MindSportApp extends StatelessWidget {
 }
 
 /// AuthWrapper
-/// This is a new, smart widget that handles showing the
-/// correct screen based on whether the user is logged in.
+/// This smart widget handles showing the correct screen based on login status.
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // We watch the AuthProvider for any changes in login status
     final authProvider = Provider.of<AuthProvider>(context);
 
     switch (authProvider.status) {
       case AuthStatus.authenticated:
-      // User is logged in, show the Home Screen
         return const HomeScreen();
       case AuthStatus.unauthenticated:
-      // User is logged out, show the Login Screen
         return const LoginScreen();
       case AuthStatus.authenticating:
       case AuthStatus.uninitialized:
       default:
-      // Show a loading circle while we check their login status
         return const Scaffold(
           body: Center(
             child: CircularProgressIndicator(),

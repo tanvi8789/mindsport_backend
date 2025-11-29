@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createOrUpdateMood, getMoodHistory } from '../controllers/mood.controller.js';
+import { createOrUpdateMood, getMoodHistory } from '../controllers/moodController.js';
 // --- THIS WAS MISSING ---
 import { protect } from '../middleware/auth.js'; 
 
